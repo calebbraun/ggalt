@@ -14,7 +14,7 @@
 #'
 #' \if{latex}{
 #' A sample of the output from \code{coord_proj()} using the Winkel-Tripel projection:
-#'``
+#'
 #' \figure{coordproj01.png}{options: width=10cm}
 #' }
 #'
@@ -102,20 +102,19 @@ coord_proj <- function(proj=NULL, inverse = FALSE, degrees = TRUE,
 #' @export
 CoordProj <- ggproto("CoordProj", Coord,
 
-  transform = function(self, data, panel_params) {
+  transform = function(self, data, scale_details) {
 
     trans <- project4(self, data$x, data$y)
     out <- cunion(trans[c("x", "y")], data)
 
-    out$x <- rescale(out$x, 0:1, panel_params$x.proj)
-    out$y <- rescale(out$y, 0:1, panel_params$y.proj)
-
+    out$x <- rescale(out$x, 0:1, scale_details$x.proj)
+    out$y <- rescale(out$y, 0:1, scale_details$y.proj)
     out
 
   },
 
-  distance = function(x, y, panel_params) {
-    max_dist <- dist_central_angle(panel_params$x.range, panel_params$y.range)
+  distance = function(x, y, scale_details) {
+    max_dist <- dist_central_angle(scale_details$x.range, scale_details$y.range)
     dist_central_angle(x, y) / max_dist
   },
 
@@ -123,13 +122,13 @@ CoordProj <- ggproto("CoordProj", Coord,
     diff(ranges$y.proj) / diff(ranges$x.proj)
   },
 
-  setup_panel_params = function(self, scale_x, scale_y, params = list()) {
+  train = function(self, scale_details) {
 
     # range in scale
     ranges <- list()
     for (n in c("x", "y")) {
 
-      scale <- get(paste0("scale_", n))
+      scale <- scale_details[[n]]
       limits <- self$limits[[n]]
 
       if (is.null(limits)) {
@@ -156,8 +155,7 @@ CoordProj <- ggproto("CoordProj", Coord,
     ret$y$proj <- proj[3:4]
 
     for (n in c("x", "y")) {
-      out <- get(paste0("scale_", n))$break_info(ranges[[n]])
-      # out <- panel_params[[n]]$break_info(ranges[[n]])
+      out <- scale_details[[n]]$break_info(ranges[[n]])
       ret[[n]]$range <- out$range
       ret[[n]]$major <- out$major_source
       ret[[n]]$minor <- out$minor_source
@@ -174,10 +172,9 @@ CoordProj <- ggproto("CoordProj", Coord,
     details
   },
 
-  render_bg = function(self, panel_params, theme) {
-
-    xrange <- expand_range(panel_params$x.range, 0.2)
-    yrange <- expand_range(panel_params$y.range, 0.2)
+  render_bg = function(self, scale_details, theme) {
+    xrange <- expand_range(scale_details$x.range, 0.2)
+    yrange <- expand_range(scale_details$y.range, 0.2)
 
     # Limit ranges so that lines don't wrap around globe
     xmid <- mean(xrange)
@@ -187,17 +184,17 @@ CoordProj <- ggproto("CoordProj", Coord,
     yrange[yrange < ymid - 90] <- ymid - 90
     yrange[yrange > ymid + 90] <- ymid + 90
 
-    xgrid <- with(panel_params, expand.grid(
+    xgrid <- with(scale_details, expand.grid(
       y = c(seq(yrange[1], yrange[2], length.out = 50), NA),
       x = x.major
     ))
-    ygrid <- with(panel_params, expand.grid(
+    ygrid <- with(scale_details, expand.grid(
       x = c(seq(xrange[1], xrange[2], length.out = 50), NA),
       y = y.major
     ))
 
-    xlines <- self$transform(xgrid, panel_params)
-    ylines <- self$transform(ygrid, panel_params)
+    xlines <- self$transform(xgrid, scale_details)
+    ylines <- self$transform(ygrid, scale_details)
 
     if (nrow(xlines) > 0) {
       grob.xlines <- element_render(
@@ -223,49 +220,49 @@ CoordProj <- ggproto("CoordProj", Coord,
     ))
   },
 
-  render_axis_h = function(self, panel_params, theme) {
-    arrange <- panel_params$x.arrange %||% c("primary", "secondary")
+  render_axis_h = function(self, scale_details, theme) {
+    arrange <- scale_details$x.arrange %||% c("primary", "secondary")
 
-    if (is.null(panel_params$x.major)) {
+    if (is.null(scale_details$x.major)) {
       return(list(
         top = zeroGrob(),
         bottom = zeroGrob()
       ))
     }
 
-    x_intercept <- with(panel_params, data.frame(
+    x_intercept <- with(scale_details, data.frame(
       x = x.major,
       y = y.range[1]
     ))
-    pos <- self$transform(x_intercept, panel_params)
+    pos <- self$transform(x_intercept, scale_details)
 
     axes <- list(
-      bottom = guide_axis(pos$x, panel_params$x.labels, "bottom", theme),
-      top = guide_axis(pos$x, panel_params$x.labels, "top", theme)
+      bottom = guide_axis(pos$x, scale_details$x.labels, "bottom", theme),
+      top = guide_axis(pos$x, scale_details$x.labels, "top", theme)
     )
     axes[[which(arrange == "secondary")]] <- zeroGrob()
     axes
   },
 
-  render_axis_v = function(self, panel_params, theme) {
-    arrange <- panel_params$y.arrange %||% c("primary", "secondary")
+  render_axis_v = function(self, scale_details, theme) {
+    arrange <- scale_details$y.arrange %||% c("primary", "secondary")
 
-    if (is.null(panel_params$y.major)) {
+    if (is.null(scale_details$y.major)) {
       return(list(
         left = zeroGrob(),
         right = zeroGrob()
       ))
     }
 
-    x_intercept <- with(panel_params, data.frame(
+    x_intercept <- with(scale_details, data.frame(
       x = x.range[1],
       y = y.major
     ))
-    pos <- self$transform(x_intercept, panel_params)
+    pos <- self$transform(x_intercept, scale_details)
 
     axes <- list(
-      left = guide_axis(pos$y, panel_params$y.labels, "left", theme),
-      right = guide_axis(pos$y, panel_params$y.labels, "right", theme)
+      left = guide_axis(pos$y, scale_details$y.labels, "left", theme),
+      right = guide_axis(pos$y, scale_details$y.labels, "right", theme)
     )
     axes[[which(arrange == "secondary")]] <- zeroGrob()
     axes
