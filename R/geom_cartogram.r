@@ -127,6 +127,7 @@ GeomCartogram <- ggproto("GeomCartogram", GeomPolygon,
     common <- intersect(data$map_id, map$id)
     data <- data[data$map_id %in% common, , drop = FALSE]
     map <- map[map$id %in% common, , drop = FALSE]
+    cat("test")
 
     # Munch, then set up id variable for polygonGrob -
     # must be sequential integers
