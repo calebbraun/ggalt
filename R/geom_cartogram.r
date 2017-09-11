@@ -130,7 +130,8 @@ GeomCartogram <- ggproto("GeomCartogram", GeomPolygon,
 
     # Munch, then set up id variable for polygonGrob -
     # must be sequential integers
-    coords <- coord_munch(coord, map, panel_scales)
+    segment_length <- if (is.null(getOption("ggalt.segment_length"))) 0.01 else getOption("ggalt.segment_length")
+    coords <- coord_munch(coord, map, panel_scales, segment_length = segment_length)
     coords$group <- coords$group %||% coords$id
     grob_id <- match(coords$group, unique(coords$group))
 
